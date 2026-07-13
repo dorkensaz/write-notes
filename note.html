@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Write Notes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--surface); display: flex; flex-direction: column; }
+/* signature asymmetric top-left, drawn as an inner accent since the OS rounds the true frame */
+#accent {
+  position: absolute; top: 0; left: 0;
+  width: 24px; height: 24px;
+  border-top-left-radius: 24px;
+  border-top: 2px solid var(--steel);
+  border-left: 2px solid var(--steel);
+  pointer-events: none;
+}
+header {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  gap: 0;
+}
+header .grip { flex: 1; display: flex; align-items: center; padding: 0 8px; min-width: 0; }
+header .grip .label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 0 8px;
+}
+main { flex: 1; display: flex; padding: 8px 16px; min-height: 0; }
+textarea {
+  flex: 1;
+  width: 100%;
+  max-width: 70ch;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  outline: none;
+  user-select: text;
+}
+textarea::placeholder { color: var(--muted); }
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--muted); }
+#pin.on { background: var(--red); }
+#defbox {
+  position: fixed;
+  inset: 48px 16px 48px 16px;
+  background: var(--base);
+  border-radius: 24px 16px 16px 16px;
+  padding: 24px;
+  overflow-y: auto;
+  display: none;
+  z-index: 40;
+}
+#defbox.show { display: block; }
+#defbox h2 { font-size: 20px; color: var(--steel); display: flex; align-items: center; margin: 0 0 8px; }
+#defbox p { margin: 0; white-space: pre-wrap; user-select: text; }
+#defbox .close { float: right; background: var(--maroon); padding: 8px; margin: 0 0 8px 8px; }
+</style>
+</head>
+<body>
+<div id="accent"></div>
+<header class="dragbar">
+  <div class="grip"><span class="sq sq-steel"></span><span class="label" id="tslabel"></span></div>
+  <button class="iconbtn" id="pin" data-tip="Keep this note floating above every other app. Click again to let it sit normally."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
+  <button class="iconbtn" id="closebtn" data-tip="Tuck this note away. It stays saved; bring it back from the hub or the tray icon."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+</header>
+<div id="toolbar">
+  <button class="iconbtn" id="btn-upper" data-tip="Highlight some text first, then click me to make it ALL CAPS."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 15 4-8 4 8"/><path d="M4 13h6"/><path d="M15 11h4.5a2 2 0 0 1 0 4H15V7h4a2 2 0 0 1 0 4"/></svg></button>
+  <button class="iconbtn" id="btn-lower" data-tip="Highlight some text first, then click me to make it all lowercase."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3"/><path d="M10 9v6"/><circle cx="17" cy="12" r="3"/><path d="M14 7v8"/></svg></button>
+  <button class="iconbtn" id="btn-define" data-tip="Highlight a word and I'll look it up in my built-in offline dictionary."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></button>
+  <button class="iconbtn" id="btn-grammar" data-tip="Highlight a sentence and I'll fix the grammar, replacing what you selected."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/><path d="m16 20 2 2 4-4"/></svg></button>
+  <button class="iconbtn" id="btn-divider" data-tip="Drop a divider line where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/></svg></button>
+  <button class="iconbtn" id="btn-emdash" data-tip="Drop an em dash where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
+  <button class="iconbtn" id="btn-ice" data-tip="Stuck? I'll drop a random conversation starter into your note."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+  <button class="iconbtn" id="btn-delete" data-tip="Delete this note for good. There's no undo, so I'm colored maroon as a warning." style="margin-left:auto;background:var(--maroon)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
+</div>
+<main>
+  <textarea id="ta" placeholder="This one's blank. Type away." data-tip="This is your note. Everything you type is saved on your machine as you go." spellcheck="false"></textarea>
+</main>
+<footer>
+  <span class="ts" id="ts" data-tip="When you last touched this note."></span>
+  <span class="ts" data-tip="Drag any edge of the window to resize me.">&#8690;</span>
+</footer>
+<div id="toast"></div>
+<div id="defbox">
+  <button class="close" id="defclose" data-tip="Close this definition and get back to writing."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  <h2><span class="sq sq-steel"></span><span id="defword"></span></h2>
+  <p id="deftext"></p>
+</div>
+<script>
+const EM = String.fromCharCode(0x2014);
+const DIVIDER = '\n' + EM.repeat(3) + '\n';
+const ICEBREAKERS = [
+  "If you could have dinner with anyone alive today, who would it be?",
+  "What is the best piece of advice you have ever received?",
+  "What skill would you master instantly if you could?",
+  "What is your go-to comfort food?",
+  "If you won the lottery tomorrow, what is the first thing you would do?",
+  "What is a small thing that made you smile this week?",
+  "Coffee or tea, and how do you take it?",
+  "What was your first job, and what did it teach you?",
+  "If you could live in any city for a year, which one?",
+  "What is a movie you can rewatch endlessly?",
+  "What did you want to be when you were ten years old?",
+  "What is the most beautiful place you have ever visited?",
+  "If your life had a theme song, what would it be?",
+  "What is one thing on your bucket list?",
+  "What hobby would you pick up if time and money were no issue?",
+  "What is the weirdest food combination you secretly enjoy?",
+  "Are you a morning person or a night owl?",
+  "What is a book that changed how you think?",
+  "If you could instantly speak another language, which one?",
+  "What is your favorite way to spend a rainy day?",
+  "What is something you are looking forward to this month?",
+  "If animals could talk, which would be the rudest?",
+  "What is the best gift you have ever given someone?",
+  "What is a talent you have that surprises people?",
+  "Would you rather explore space or the deep ocean?",
+  "What was your favorite subject in school?",
+  "What is the last song you had stuck in your head?",
+  "If you opened a small shop, what would it sell?",
+  "What is a tradition from your family you love?",
+  "What is the best meal you have ever eaten?",
+  "If you could time travel, past or future?",
+  "What is one app you could not live without?",
+  "What is your idea of a perfect weekend?",
+  "What fictional world would you most want to visit?",
+  "What is something new you tried recently?",
+  "If you had a free extra hour every day, how would you use it?",
+  "What is the kindest thing a stranger has done for you?",
+  "Which season fits your personality best?",
+  "What is a smell that instantly brings back a memory?",
+  "If you could swap lives with someone for a day, who?",
+  "What is the most spontaneous thing you have ever done?",
+  "What would the title of your autobiography be?",
+  "If you could un-invent one thing, what would it be?",
+  "What is your favorite word in any language?"
+];
+
+const id = Number(new URLSearchParams(location.search).get('id'));
+const ta = document.getElementById('ta');
+const toastEl = document.getElementById('toast');
+let lastIce = -1;
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastEl._t);
+  toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 3200);
+}
+
+function fmtTs(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function touch() {
+  api.setText(id, ta.value);
+  const now = Date.now();
+  document.getElementById('ts').textContent = fmtTs(now);
+  document.getElementById('tslabel').textContent = fmtTs(now);
+}
+
+api.getNote(id).then(n => {
+  if (!n) return;
+  ta.value = n.text;
+  document.getElementById('ts').textContent = fmtTs(n.ts);
+  document.getElementById('tslabel').textContent = fmtTs(n.ts);
+  if (n.pin) document.getElementById('pin').classList.add('on');
+});
+
+ta.addEventListener('input', touch);
+
+function selection() {
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  if (s === e) { toast("Highlight some text in the note first, then hit that button again."); return null; }
+  return { s, e, text: ta.value.slice(s, e) };
+}
+function replaceRange(s, e, text) {
+  ta.setRangeText(text, s, e, 'select');
+  touch();
+  ta.focus();
+}
+function insertAtCursor(text) {
+  ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end');
+  touch();
+  ta.focus();
+}
+
+// toolbar buttons keep the textarea selection alive
+document.querySelectorAll('button').forEach(b => b.addEventListener('mousedown', ev => ev.preventDefault()));
+
+document.getElementById('pin').onclick = async () => {
+  const on = !document.getElementById('pin').classList.contains('on');
+  const applied = await api.setPin(id, on);
+  document.getElementById('pin').classList.toggle('on', applied);
+  toast(applied ? "Pinned. I'll float above everything until you unpin me." : "Unpinned. I'll behave like a normal window now.");
+};
+document.getElementById('closebtn').onclick = () => api.closeNote(id);
+document.getElementById('btn-delete').onclick = () => api.deleteNote(id);
+
+document.getElementById('btn-upper').onclick = () => { const sel = selection(); if (sel) replaceRange(sel.s, sel.e, sel.text.toUpperCase()); };
+document.getElementById('btn-lower').onclick = () => { const sel = selection(); if (sel) replaceRange(sel.s, sel.e, sel.text.toLowerCase()); };
+
+document.getElementById('btn-define').onclick = async () => {
+  const sel = selection(); if (!sel) return;
+  const word = sel.text.trim().split(/\s+/)[0];
+  const r = await api.define(word);
+  if (r.definition) {
+    document.getElementById('defword').textContent = r.word;
+    document.getElementById('deftext').textContent = r.definition;
+    document.getElementById('defbox').classList.add('show');
+  } else {
+    toast('I looked, but "' + word + '" isn\'t in my dictionary. Mine is a classic Webster\'s, so very new words slip past it.');
+  }
+};
+document.getElementById('defclose').onclick = () => document.getElementById('defbox').classList.remove('show');
+
+document.getElementById('btn-grammar').onclick = async () => {
+  const sel = selection(); if (!sel) return;
+  toast("Give me a second, I'm reading your sentence...");
+  const r = await api.grammar(sel.text);
+  if (r.error) { toast("I couldn't reach a grammar checker just now. Once you're online (or the offline checker is running), try me again."); return; }
+  replaceRange(sel.s, sel.e, r.corrected);
+  toast(r.corrected === sel.text
+    ? "That reads fine to me. I didn't change a thing."
+    : "There you go, I tidied it up" + (r.source === 'local' ? ' with the offline checker.' : ' using the free online checker.'));
+};
+
+function copyClip(text) { navigator.clipboard.writeText(text).catch(() => {}); }
+document.getElementById('btn-divider').onclick = () => { insertAtCursor(DIVIDER); copyClip(DIVIDER); toast("Divider's in, and I put a copy on your clipboard too."); };
+document.getElementById('btn-emdash').onclick = () => { insertAtCursor(EM); copyClip(EM); toast("Em dash dropped in, and it's on your clipboard if you need it elsewhere."); };
+document.getElementById('btn-ice').onclick = () => {
+  let i;
+  do { i = Math.floor(Math.random() * ICEBREAKERS.length); } while (i === lastIce);
+  lastIce = i;
+  insertAtCursor((ta.value && !ta.value.endsWith('\n') ? '\n' : '') + ICEBREAKERS[i]);
+};
+</script>
+</body>
+</html>

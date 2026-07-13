@@ -1,0 +1,44 @@
+{
+  "name": "write-notes",
+  "productName": "Write Notes",
+  "version": "1.0.0",
+  "description": "Floating sticky notes on your desktop, by VA Tools PH. Free forever, unlimited access.",
+  "main": "main.js",
+  "author": "Ken (VA Tools PH)",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^38.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ph.vatools.writenotes",
+    "productName": "Write Notes",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "note.html",
+      "hub.html",
+      "about.html",
+      "shared.css",
+      "assets/**",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>More tools</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow: hidden; }
+header { display: flex; align-items: center; padding: 8px; }
+header .grip { flex: 1; display: flex; align-items: center; padding: 0 8px; }
+header h1 { font-size: 20px; display: flex; align-items: center; }
+#content { flex: 1; overflow-y: auto; padding: 8px 24px 24px; }
+#photo {
+  width: 144px;
+  height: 144px;
+  object-fit: cover;
+  border-radius: 24px 16px 16px 16px; /* signature corner on the portrait too */
+  display: block;
+  margin: 0 0 16px;
+}
+#content p { margin: 0 0 16px; max-width: 68ch; user-select: text; }
+#content ul { list-style: none; margin: 0 0 16px; padding: 0; }
+#content li { padding: 0 0 8px 16px; }
+#content a { color: var(--text); text-decoration: underline; }
+</style>
+</head>
+<body>
+<header class="dragbar">
+  <div class="grip"><h1><span class="sq sq-steel"></span>More tools</h1></div>
+  <button class="iconbtn" id="closebtn" data-tip="Close this window and get back to your notes."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+</header>
+<div id="content">
+  <img id="photo" src="assets/ken.jpeg" alt="Ken, the person who builds these tools" data-tip="That's Ken. He builds these free tools for Filipino VAs.">
+  <p>Hey! Ken here. On 2021, 4 years ago: I asked my dad, (who's an English college professor at the University of Mindanao for 28 years now), if I could quit drop out of high school to "figure it out" on my own. This means making money without any completed degrees or prior work experience. Fast-forward to now? I am earning &#8369;65k monthly for 5 hours daily: giving forever-free, unlimited-access resources to Filipino VAs, whether veteran or beginner.</p>
+  <p>Here's all of them!</p>
+  <ul>
+    <li><a href="#" data-url="https://vatools.ph/record" data-tip="Opens Record &amp; Transcribe in your browser.">Record &amp; Transcribe</a></li>
+    <li><a href="#" data-url="https://vatools.ph/invoices" data-tip="Opens File Invoices in your browser.">File Invoices</a></li>
+    <li><a href="#" data-url="https://vatools.ph/prompts" data-tip="Opens Manage Prompts in your browser.">Manage Prompts</a></li>
+  </ul>
+  <p>All I ask in return? I'd appreciate <a href="#" data-url="https://ko-fi.com/dorencekensazon" data-tip="Buy Ken a coffee on Ko-fi. Opens in your browser.">a cup of coffee</a> or sharing this to others that would find this helpful but I can't reach.</p>
+  <p>That's all.</p>
+  <p>Wanna talk more? <a href="#" data-url="https://www.linkedin.com/in/dorence-ken-gabucan-sazon-643b9141a/" data-tip="Message Ken on LinkedIn. Opens in your browser.">Leave me a message here</a> anytime.</p>
+</div>
+<script>
+document.getElementById('closebtn').onclick = () => api.closeWindow();
+document.querySelectorAll('a[data-url]').forEach(a => {
+  a.onclick = e => { e.preventDefault(); api.openExternal(a.dataset.url); };
+});
+</script>
+</body>
+</html>

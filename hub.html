@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Write Notes</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+html, body { height: 100%; overflow: hidden; }
+body { display: flex; flex-direction: column; }
+header { display: flex; align-items: center; padding: 8px; }
+header .grip { flex: 1; padding: 0 8px; }
+header .grip img { height: 40px; display: block; border-radius: 8px; }
+#top { padding: 0 24px 16px; }
+#top h1 { font-size: 25px; display: flex; align-items: center; margin: 8px 0 16px; }
+#list { flex: 1; overflow-y: auto; padding: 0 24px; display: flex; flex-direction: column; gap: 8px; }
+.item {
+  background: var(--surface);
+  border-radius: 24px 8px 8px 8px; /* signature asymmetric top-left, one step up */
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.item:hover { filter: brightness(1.3); }
+.item .prev { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .when { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--muted); flex: none; }
+#empty {
+  background: var(--surface);
+  border-radius: 24px 16px 16px 16px;
+  padding: 24px;
+  color: var(--muted);
+  display: none;
+}
+footer {
+  padding: 16px 24px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+#more { color: var(--text); text-decoration: underline; font-size: 16px; }
+</style>
+</head>
+<body>
+<header class="dragbar">
+  <div class="grip"><img src="assets/va-tools-ph-logo.png" alt="VA Tools PH"></div>
+  <button class="iconbtn" id="hide" data-tip="Hide this window. I stay in your system tray; click the tray icon to bring me back."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+</header>
+<div id="top">
+  <h1><span class="sq sq-red"></span>Write Notes</h1>
+  <button class="btn-primary" id="new" data-tip="Pop a fresh sticky note onto your desktop."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>New note</button>
+</div>
+<div id="list"></div>
+<div id="empty" style="margin: 0 24px">No notes on your desktop yet. Hit "New note" above and I'll pop one up for you.</div>
+<footer>
+  <a id="more" data-tip="Meet the person behind this and grab the other free VA tools.">More tools</a>
+  <button class="btn-danger" id="quit" data-tip="Close Write Notes completely, including every sticky note. Your notes stay saved for next time.">Quit</button>
+</footer>
+<script>
+function fmtTs(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return pad(d.getMonth() + 1) + '.' + pad(d.getDate());
+}
+function renderList(items) {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  document.getElementById('empty').style.display = items.length ? 'none' : 'block';
+  items.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.setAttribute('data-tip', n.open ? "This note is on your desktop. Click to bring it to the front." : "This note is tucked away. Click to put it back on your desktop.");
+    div.innerHTML = '<span class="sq ' + (n.open ? 'sq-steel' : 'sq-maroon') + '"></span>';
+    const prev = document.createElement('span');
+    prev.className = 'prev';
+    prev.textContent = n.preview;
+    const when = document.createElement('span');
+    when.className = 'when';
+    when.textContent = fmtTs(n.ts);
+    div.appendChild(prev);
+    div.appendChild(when);
+    div.onclick = () => api.focusNote(n.id);
+    list.appendChild(div);
+  });
+}
+api.listNotes().then(renderList);
+api.onNotesChanged(renderList);
+document.getElementById('new').onclick = () => api.newNote();
+document.getElementById('hide').onclick = () => api.closeWindow();
+document.getElementById('more').onclick = () => api.openAbout();
+document.getElementById('quit').onclick = () => api.quit();
+</script>
+</body>
+</html>
