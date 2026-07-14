@@ -1,7 +1,7 @@
 {
   "name": "write-notes",
   "productName": "Write Notes",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Floating sticky notes on your desktop, by VA Tools PH. Free forever, unlimited access.",
   "main": "main.js",
   "author": "Ken (VA Tools PH)",
@@ -28,6 +28,7 @@
       "hub.html",
       "about.html",
       "shared.css",
+      "tooltip.js",
       "assets/**",
       "build/icon.ico"
     ],

@@ -70,14 +70,11 @@ button svg { flex: none; }
 .dragbar { -webkit-app-region: drag; }
 .dragbar button, .dragbar a { -webkit-app-region: no-drag; }
 
-/* hover guides: dark rounded tooltip, ~400ms delay */
-[data-tip] { position: relative; }
-[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+/* hover guides: dark rounded tooltip, ~400ms delay.
+   Positioned by tooltip.js (not pure CSS) so it can clamp to the small
+   window's actual bounds instead of overflowing past the frameless edge. */
+#__tip {
+  position: fixed;
   background: var(--navy);
   color: var(--text);
   font-family: 'IBM Plex Sans', sans-serif;
@@ -87,18 +84,15 @@ button svg { flex: none; }
   padding: 8px 16px;
   border-radius: 8px;
   white-space: normal;
-  width: max-content;
   max-width: 232px;
   text-align: left;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity .15s ease .4s, visibility 0s linear .55s;
-  z-index: 50;
+  transition: opacity .15s ease;
+  z-index: 9999;
 }
-[data-tip]:hover::after { opacity: 1; visibility: visible; transition-delay: .4s, .4s; }
-.tip-up::after { top: auto; bottom: calc(100% + 8px); }
-.tip-left::after { left: auto; right: 0; transform: none; }
+#__tip.show { opacity: 1; visibility: visible; }
 
 #toast {
   position: fixed;
