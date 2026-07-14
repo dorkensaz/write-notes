@@ -31,29 +31,42 @@ header .grip .label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+main { flex: 1; display: flex; padding: 8px 16px; min-height: 0; }
+#ta {
+  flex: 1;
+  width: 100%;
+  max-width: 70ch;
+  overflow-y: auto;
+  outline: none;
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  user-select: text;
+}
+#ta:empty::before { content: attr(data-placeholder); color: var(--muted); }
+/* the persistent bottom bar, in the spot Microsoft's Sticky Notes puts its own */
 #toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 0;
   padding: 0 8px;
 }
-main { flex: 1; display: flex; padding: 8px 16px; min-height: 0; }
-textarea {
-  flex: 1;
-  width: 100%;
-  max-width: 70ch;
-  border: none;
-  background: transparent;
-  resize: none;
+.fmtbtn {
+  width: 32px;
+  justify-content: center;
   font-family: 'IBM Plex Sans', sans-serif;
-  font-weight: 400;
   font-size: 16px;
-  line-height: 1.5;
-  color: var(--text);
-  outline: none;
-  user-select: text;
+  line-height: 1;
 }
-textarea::placeholder { color: var(--muted); }
+.fmtbtn.active { background: var(--steel); color: var(--base); }
+#btn-bold { font-weight: 700; }
+#btn-italic { font-style: italic; }
+#btn-underline { text-decoration: underline; }
+#btn-strike { text-decoration: line-through; }
 footer {
   display: flex;
   align-items: center;
@@ -62,6 +75,18 @@ footer {
 }
 footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--muted); }
 #pin.on { background: var(--red); }
+/* floating contextual toolbar: appears above a highlighted selection */
+#floatbar {
+  position: fixed;
+  display: none;
+  gap: 0;
+  background: var(--navy);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 45;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .4);
+}
+#floatbar.show { display: flex; }
 #defbox {
   position: fixed;
   inset: 48px 16px 48px 16px;
@@ -85,23 +110,30 @@ footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: va
   <button class="iconbtn" id="pin" data-tip="Keep this note floating above every other app. Click again to let it sit normally."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
   <button class="iconbtn" id="closebtn" data-tip="Tuck this note away. It stays saved; bring it back from the hub or the tray icon."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
 </header>
+<main>
+  <div id="ta" contenteditable="true" data-placeholder="This one's blank. Type away." data-tip="This is your note. Everything you type is saved on your machine as you go." spellcheck="false"></div>
+</main>
 <div id="toolbar">
-  <button class="iconbtn" id="btn-upper" data-tip="Highlight some text first, then click me to make it ALL CAPS."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 15 4-8 4 8"/><path d="M4 13h6"/><path d="M15 11h4.5a2 2 0 0 1 0 4H15V7h4a2 2 0 0 1 0 4"/></svg></button>
-  <button class="iconbtn" id="btn-lower" data-tip="Highlight some text first, then click me to make it all lowercase."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3"/><path d="M10 9v6"/><circle cx="17" cy="12" r="3"/><path d="M14 7v8"/></svg></button>
-  <button class="iconbtn" id="btn-define" data-tip="Highlight a word and I'll look it up in my built-in offline dictionary."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></button>
-  <button class="iconbtn" id="btn-grammar" data-tip="Highlight a sentence and I'll fix the grammar, replacing what you selected."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/><path d="m16 20 2 2 4-4"/></svg></button>
+  <button class="iconbtn fmtbtn" id="btn-bold" data-tip="Bold your selection, or turn on bold for whatever you type next.">B</button>
+  <button class="iconbtn fmtbtn" id="btn-italic" data-tip="Italicize your selection, or turn on italics for whatever you type next.">I</button>
+  <button class="iconbtn fmtbtn" id="btn-underline" data-tip="Underline your selection, or turn on underline for whatever you type next.">U</button>
+  <button class="iconbtn fmtbtn" id="btn-strike" data-tip="Strike through your selection, or turn it on for whatever you type next.">S</button>
   <button class="iconbtn" id="btn-divider" data-tip="Drop a divider line where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/></svg></button>
   <button class="iconbtn" id="btn-emdash" data-tip="Drop an em dash where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
   <button class="iconbtn" id="btn-ice" data-tip="Stuck? I'll drop a random conversation starter into your note."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
   <button class="iconbtn" id="btn-delete" data-tip="Delete this note for good. There's no undo, so I'm colored maroon as a warning." style="margin-left:auto;background:var(--maroon)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
 </div>
-<main>
-  <textarea id="ta" placeholder="This one's blank. Type away." data-tip="This is your note. Everything you type is saved on your machine as you go." spellcheck="false"></textarea>
-</main>
 <footer>
   <span class="ts" id="ts" data-tip="When you last touched this note."></span>
   <span class="ts" data-tip="Drag any edge of the window to resize me.">&#8690;</span>
 </footer>
+<!-- appears above a highlighted selection, for the tools that need one -->
+<div id="floatbar">
+  <button class="iconbtn" id="f-upper" data-tip="Make the highlighted text ALL CAPS."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 15 4-8 4 8"/><path d="M4 13h6"/><path d="M15 11h4.5a2 2 0 0 1 0 4H15V7h4a2 2 0 0 1 0 4"/></svg></button>
+  <button class="iconbtn" id="f-lower" data-tip="Make the highlighted text all lowercase."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="3"/><path d="M10 9v6"/><circle cx="17" cy="12" r="3"/><path d="M14 7v8"/></svg></button>
+  <button class="iconbtn" id="f-define" data-tip="Look up the highlighted word in my built-in offline dictionary."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></button>
+  <button class="iconbtn" id="f-grammar" data-tip="Fix the grammar in the highlighted sentence."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/><path d="m16 20 2 2 4-4"/></svg></button>
+</div>
 <div id="toast"></div>
 <div id="defbox">
   <button class="close" id="defclose" data-tip="Close this definition and get back to writing."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
@@ -161,6 +193,7 @@ const ICEBREAKERS = [
 const id = Number(new URLSearchParams(location.search).get('id'));
 const ta = document.getElementById('ta');
 const toastEl = document.getElementById('toast');
+const floatbar = document.getElementById('floatbar');
 let lastIce = -1;
 
 function toast(msg) {
@@ -177,7 +210,7 @@ function fmtTs(ts) {
 }
 
 function touch() {
-  api.setText(id, ta.value);
+  api.setContent(id, ta.innerHTML);
   const now = Date.now();
   document.getElementById('ts').textContent = fmtTs(now);
   document.getElementById('tslabel').textContent = fmtTs(now);
@@ -185,31 +218,67 @@ function touch() {
 
 api.getNote(id).then(n => {
   if (!n) return;
-  ta.value = n.text;
+  ta.innerHTML = n.html || '';
   document.getElementById('ts').textContent = fmtTs(n.ts);
   document.getElementById('tslabel').textContent = fmtTs(n.ts);
   if (n.pin) document.getElementById('pin').classList.add('on');
 });
 
 ta.addEventListener('input', touch);
+// keep the whole note one block of inline text + line breaks, no nested paragraphs to reason about
+ta.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); document.execCommand('insertHTML', false, '<br>'); touch(); }
+});
 
-function selection() {
-  const s = ta.selectionStart, e = ta.selectionEnd;
-  if (s === e) { toast("Highlight some text in the note first, then hit that button again."); return null; }
-  return { s, e, text: ta.value.slice(s, e) };
-}
-function replaceRange(s, e, text) {
-  ta.setRangeText(text, s, e, 'select');
-  touch();
-  ta.focus();
-}
-function insertAtCursor(text) {
-  ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end');
-  touch();
-  ta.focus();
+function currentSelectionInEditor() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
+  const range = sel.getRangeAt(0);
+  if (!ta.contains(range.commonAncestorContainer) && range.commonAncestorContainer !== ta) return null;
+  return { sel, range };
 }
 
-// toolbar buttons keep the textarea selection alive
+function transformSelection(fn) {
+  const ctx = currentSelectionInEditor();
+  if (!ctx) { toast("Highlight some text in the note first, then hit that button again."); return false; }
+  const { range } = ctx;
+  // a selection fully inside one text node has that node itself as commonAncestorContainer,
+  // which has no descendants for a walker to find -- root at its parent element instead
+  const root = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+    ? range.commonAncestorContainer.parentNode
+    : range.commonAncestorContainer;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  let node;
+  while ((node = walker.nextNode())) { if (range.intersectsNode(node)) nodes.push(node); }
+  nodes.forEach(node => {
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === range.endContainer ? range.endOffset : node.data.length;
+    if (start >= end) return;
+    node.data = node.data.slice(0, start) + fn(node.data.slice(start, end)) + node.data.slice(end);
+  });
+  touch();
+  return true;
+}
+
+function replaceSelectionText(text) {
+  const ctx = currentSelectionInEditor();
+  if (!ctx) return false;
+  const { sel, range } = ctx;
+  range.deleteContents();
+  const node = document.createTextNode(text);
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  touch();
+  return true;
+}
+
+function selectedPlainText() { return window.getSelection().toString(); }
+
+// every button keeps the note's text selection alive across the click
 document.querySelectorAll('button').forEach(b => b.addEventListener('mousedown', ev => ev.preventDefault()));
 
 document.getElementById('pin').onclick = async () => {
@@ -221,43 +290,96 @@ document.getElementById('pin').onclick = async () => {
 document.getElementById('closebtn').onclick = () => api.closeNote(id);
 document.getElementById('btn-delete').onclick = () => api.deleteNote(id);
 
-document.getElementById('btn-upper').onclick = () => { const sel = selection(); if (sel) replaceRange(sel.s, sel.e, sel.text.toUpperCase()); };
-document.getElementById('btn-lower').onclick = () => { const sel = selection(); if (sel) replaceRange(sel.s, sel.e, sel.text.toLowerCase()); };
+// persistent bottom bar: formatting toggles and inserts, matching where Microsoft's Sticky Notes puts them
+const fmtButtons = { bold: document.getElementById('btn-bold'), italic: document.getElementById('btn-italic'), underline: document.getElementById('btn-underline'), strikeThrough: document.getElementById('btn-strike') };
+Object.entries(fmtButtons).forEach(([cmd, btn]) => {
+  btn.onclick = () => { ta.focus(); document.execCommand(cmd); touch(); };
+});
+function updateFormatStates() {
+  Object.entries(fmtButtons).forEach(([cmd, btn]) => {
+    try { btn.classList.toggle('active', document.queryCommandState(cmd)); } catch { /* no selection context yet */ }
+  });
+}
 
-document.getElementById('btn-define').onclick = async () => {
-  const sel = selection(); if (!sel) return;
-  const word = sel.text.trim().split(/\s+/)[0];
+function copyClip(text) { navigator.clipboard.writeText(text).catch(() => {}); }
+document.getElementById('btn-divider').onclick = () => {
+  ta.focus();
+  document.execCommand('insertHTML', false, '<br>');
+  document.execCommand('insertText', false, EM.repeat(3));
+  document.execCommand('insertHTML', false, '<br>');
+  touch();
+  copyClip(DIVIDER);
+  toast("Divider's in, and I put a copy on your clipboard too.");
+};
+document.getElementById('btn-emdash').onclick = () => {
+  ta.focus();
+  document.execCommand('insertText', false, EM);
+  touch();
+  copyClip(EM);
+  toast("Em dash dropped in, and it's on your clipboard if you need it elsewhere.");
+};
+document.getElementById('btn-ice').onclick = () => {
+  ta.focus();
+  let i;
+  do { i = Math.floor(Math.random() * ICEBREAKERS.length); } while (i === lastIce);
+  lastIce = i;
+  if (ta.textContent.trim() !== '') document.execCommand('insertHTML', false, '<br>');
+  document.execCommand('insertText', false, ICEBREAKERS[i]);
+  touch();
+};
+
+// floating toolbar: only appears once text is highlighted, matching how Word/Notion do it
+document.getElementById('f-upper').onclick = () => transformSelection(s => s.toUpperCase());
+document.getElementById('f-lower').onclick = () => transformSelection(s => s.toLowerCase());
+
+document.getElementById('f-define').onclick = async () => {
+  const text = selectedPlainText();
+  if (!text.trim()) { toast("Highlight some text in the note first, then hit that button again."); return; }
+  const word = text.trim().split(/\s+/)[0];
   const r = await api.define(word);
   if (r.definition) {
     document.getElementById('defword').textContent = r.word;
     document.getElementById('deftext').textContent = r.definition;
     document.getElementById('defbox').classList.add('show');
+    hideFloat();
   } else {
     toast('I looked, but "' + word + '" isn\'t in my dictionary. Mine is a classic Webster\'s, so very new words slip past it.');
   }
 };
 document.getElementById('defclose').onclick = () => document.getElementById('defbox').classList.remove('show');
 
-document.getElementById('btn-grammar').onclick = async () => {
-  const sel = selection(); if (!sel) return;
+document.getElementById('f-grammar').onclick = async () => {
+  const text = selectedPlainText();
+  if (!text.trim()) { toast("Highlight some text in the note first, then hit that button again."); return; }
   toast("Give me a second, I'm reading your sentence...");
-  const r = await api.grammar(sel.text);
+  const r = await api.grammar(text);
   if (r.error) { toast("I couldn't reach a grammar checker just now. Once you're online (or the offline checker is running), try me again."); return; }
-  replaceRange(sel.s, sel.e, r.corrected);
-  toast(r.corrected === sel.text
+  replaceSelectionText(r.corrected);
+  toast(r.corrected === text
     ? "That reads fine to me. I didn't change a thing."
     : "There you go, I tidied it up" + (r.source === 'local' ? ' with the offline checker.' : ' using the free online checker.'));
 };
 
-function copyClip(text) { navigator.clipboard.writeText(text).catch(() => {}); }
-document.getElementById('btn-divider').onclick = () => { insertAtCursor(DIVIDER); copyClip(DIVIDER); toast("Divider's in, and I put a copy on your clipboard too."); };
-document.getElementById('btn-emdash').onclick = () => { insertAtCursor(EM); copyClip(EM); toast("Em dash dropped in, and it's on your clipboard if you need it elsewhere."); };
-document.getElementById('btn-ice').onclick = () => {
-  let i;
-  do { i = Math.floor(Math.random() * ICEBREAKERS.length); } while (i === lastIce);
-  lastIce = i;
-  insertAtCursor((ta.value && !ta.value.endsWith('\n') ? '\n' : '') + ICEBREAKERS[i]);
-};
+function hideFloat() { floatbar.classList.remove('show'); }
+function positionFloat() {
+  const ctx = currentSelectionInEditor();
+  if (!ctx) { hideFloat(); return; }
+  const rect = ctx.range.getBoundingClientRect();
+  if (!rect || (rect.width === 0 && rect.height === 0)) { hideFloat(); return; }
+  floatbar.classList.add('show');
+  const bw = floatbar.offsetWidth, bh = floatbar.offsetHeight;
+  let left = rect.left + rect.width / 2 - bw / 2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  let top = rect.top - bh - 8;
+  if (top < 8) top = rect.bottom + 8;
+  floatbar.style.left = left + 'px';
+  floatbar.style.top = top + 'px';
+}
+let selTimer;
+document.addEventListener('selectionchange', () => {
+  clearTimeout(selTimer);
+  selTimer = setTimeout(() => { positionFloat(); updateFormatStates(); }, 10);
+});
 </script>
 </body>
 </html>

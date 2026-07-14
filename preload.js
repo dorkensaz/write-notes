@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getNote: id => ipcRenderer.invoke('note:get', id),
-  setText: (id, text) => ipcRenderer.send('note:text', id, text),
+  setContent: (id, html) => ipcRenderer.send('note:content', id, html),
   setPin: (id, pin) => ipcRenderer.invoke('note:pin', id, pin),
   closeNote: id => ipcRenderer.send('note:close', id),
   deleteNote: id => ipcRenderer.send('note:delete', id),

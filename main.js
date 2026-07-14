@@ -13,12 +13,29 @@ let aboutWin = null;
 let tray = null;
 let dictionary = null; // lazy-loaded
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function load() {
   try {
     notes = JSON.parse(fs.readFileSync(STORE(), 'utf-8').replace(/^﻿/, ''));
   } catch {
     notes = [];
   }
+  // migrate pre-rich-text notes (plain "text" field) into the "html" field
+  notes.forEach(n => {
+    if (n.html === undefined) n.html = escapeHtml(n.text || '').replace(/\n/g, '<br>');
+  });
+}
+
+function plainPreview(html) {
+  return String(html || '')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 let saveTimer;
@@ -34,7 +51,7 @@ function save() {
 function summary() {
   return notes.map(n => ({
     id: n.id,
-    preview: (n.text.trim().split('\n')[0] || 'A blank note').slice(0, 40),
+    preview: (plainPreview(n.html) || 'A blank note').slice(0, 40),
     ts: n.ts,
     open: noteWins.has(n.id)
   }));
@@ -89,7 +106,7 @@ function newNote() {
   const disp = screen.getPrimaryDisplay().workArea;
   const n = {
     id: Date.now(),
-    text: '',
+    html: '',
     ts: Date.now(),
     x: disp.x + 80 + (count % 8) * 40,
     y: disp.y + 80 + (count % 8) * 40,
@@ -145,10 +162,10 @@ function createTray() {
 // ---------- IPC ----------
 ipcMain.handle('note:get', (e, id) => notes.find(n => n.id === id) || null);
 
-ipcMain.on('note:text', (e, id, text) => {
+ipcMain.on('note:content', (e, id, html) => {
   const n = notes.find(n => n.id === id);
   if (!n) return;
-  n.text = text; n.ts = Date.now();
+  n.html = html; n.ts = Date.now();
   save(); tellHub();
 });
 
@@ -219,7 +236,7 @@ if (!gotLock) {
     if (notes.length === 0) {
       notes = [{
         id: Date.now(),
-        text: "Welcome to Write Notes! I'm a sticky note; drag me around by my top bar, pin me above other apps, and highlight some text to try the tools.",
+        html: "Welcome to Write Notes! I'm a sticky note; drag me around by my top bar, pin me above other apps, and highlight some text to try the tools.",
         ts: Date.now(), x: undefined, y: undefined, w: 400, h: 340, pin: false
       }];
       save();
