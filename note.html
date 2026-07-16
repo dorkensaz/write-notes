@@ -219,8 +219,32 @@ api.getNote(id).then(n => {
 ta.addEventListener('input', touch);
 // keep the whole note one block of inline text + line breaks, no nested paragraphs to reason about
 ta.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); document.execCommand('insertHTML', false, '<br>'); touch(); }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  document.execCommand('insertHTML', false, '<br>');
+  padTrailingBreak();
+  touch();
 });
+
+// a lone trailing <br> is invisible in Chromium (no blank line renders below it), so hitting
+// Enter at the end of a note looks like it did nothing -- pad with a second <br> and park the
+// caret in front of it so the new blank line actually shows up right away
+function padTrailingBreak() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const end = document.createRange();
+  end.selectNodeContents(ta);
+  end.setStart(range.endContainer, range.endOffset);
+  const frag = end.cloneContents();
+  if (frag.textContent.length > 0 || frag.querySelectorAll('br').length > 0) return;
+  const pad = document.createElement('br');
+  range.insertNode(pad);
+  range.setStartBefore(pad);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
 
 function currentSelectionInEditor() {
   const sel = window.getSelection();
