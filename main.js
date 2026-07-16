@@ -75,7 +75,7 @@ function createNoteWindow(n) {
   const opts = {
     width: bounds.width, height: bounds.height,
     minWidth: 296, minHeight: 240,
-    frame: false, resizable: true, skipTaskbar: true,
+    frame: false, resizable: true, skipTaskbar: false,
     backgroundColor: '#1C1C1C',
     alwaysOnTop: !!n.pin,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
@@ -99,6 +99,12 @@ function createNoteWindow(n) {
   noteWins.set(n.id, win);
   tellHub();
   return win;
+}
+
+function openMostRecent() {
+  if (!notes.length) { newNote(); return; }
+  const latest = notes.reduce((a, b) => (b.ts > a.ts ? b : a));
+  createNoteWindow(latest);
 }
 
 function newNote() {
@@ -156,7 +162,7 @@ function createTray() {
     { type: 'separator' },
     { label: 'Quit Write Notes', click: () => { app.isQuittingForReal = true; app.quit(); } }
   ]));
-  tray.on('click', () => createHub(true));
+  tray.on('click', () => openMostRecent());
 }
 
 // ---------- IPC ----------
@@ -191,6 +197,7 @@ ipcMain.on('note:new', newNote);
 ipcMain.on('note:focus', (e, id) => { const n = notes.find(n => n.id === id); if (n) createNoteWindow(n); });
 ipcMain.handle('notes:list', () => summary());
 ipcMain.on('about:open', createAbout);
+ipcMain.on('hub:open', () => createHub(true));
 ipcMain.on('win:close', e => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.close(); });
 ipcMain.on('external', (e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
 ipcMain.on('app:quit', () => { app.isQuittingForReal = true; app.quit(); });
@@ -229,7 +236,7 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => createHub(true));
+  app.on('second-instance', () => openMostRecent());
   app.whenReady().then(() => {
     load();
     createTray();

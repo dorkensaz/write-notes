@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   listNotes: () => ipcRenderer.invoke('notes:list'),
   onNotesChanged: cb => ipcRenderer.on('notes-changed', (e, list) => cb(list)),
   openAbout: () => ipcRenderer.send('about:open'),
+  openHub: () => ipcRenderer.send('hub:open'),
   closeWindow: () => ipcRenderer.send('win:close'),
   openExternal: url => ipcRenderer.send('external', url),
   quit: () => ipcRenderer.send('app:quit'),
