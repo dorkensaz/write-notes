@@ -221,27 +221,36 @@ ta.addEventListener('input', touch);
 ta.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   e.preventDefault();
-  document.execCommand('insertHTML', false, '<br>');
-  padTrailingBreak();
+  insertLineBreak();
   touch();
 });
 
-// a lone trailing <br> is invisible in Chromium (no blank line renders below it), so hitting
-// Enter at the end of a note looks like it did nothing -- pad with a second <br> and park the
-// caret in front of it so the new blank line actually shows up right away
-function padTrailingBreak() {
+// document.execCommand is deprecated and silently no-ops in current Chromium/Electron --
+// insert the <br> by hand via the Range API instead of relying on it
+function insertLineBreak() {
   const sel = window.getSelection();
   if (!sel.rangeCount) return;
   const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const br = document.createElement('br');
+  range.insertNode(br);
+  range.setStartAfter(br);
+  range.collapse(true);
+
+  // a lone trailing <br> is invisible in Chromium (no blank line renders below it), so hitting
+  // Enter at the true end of a note would look like it did nothing -- pad with a second <br>
+  // and park the caret in front of it so the new blank line shows up right away
   const end = document.createRange();
   end.selectNodeContents(ta);
   end.setStart(range.endContainer, range.endOffset);
   const frag = end.cloneContents();
-  if (frag.textContent.length > 0 || frag.querySelectorAll('br').length > 0) return;
-  const pad = document.createElement('br');
-  range.insertNode(pad);
-  range.setStartBefore(pad);
-  range.collapse(true);
+  if (frag.textContent.length === 0 && frag.querySelectorAll('br').length === 0) {
+    const pad = document.createElement('br');
+    range.insertNode(pad);
+    range.setStartBefore(pad);
+    range.collapse(true);
+  }
+
   sel.removeAllRanges();
   sel.addRange(range);
 }
