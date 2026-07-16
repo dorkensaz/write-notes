@@ -97,13 +97,14 @@ footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: va
 <body>
 <header class="dragbar">
   <div class="grip"><span class="sq sq-steel"></span><span class="label" id="tslabel"></span></div>
+  <button class="iconbtn" id="btn-new" data-tip="Start a brand-new note right away, no need to open the hub."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
   <button class="iconbtn" id="btn-divider" data-tip="Drop a divider line where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/></svg></button>
   <button class="iconbtn" id="btn-emdash" data-tip="Drop an em dash where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
   <button class="iconbtn" id="btn-ice" data-tip="Stuck? I'll drop a random conversation starter into your note."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
   <button class="iconbtn" id="menubtn" data-tip="Open the Write Notes hub, with the full list of your notes."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg></button>
   <button class="iconbtn" id="pin" data-tip="Keep this note floating above every other app. Click again to let it sit normally."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
   <button class="iconbtn" id="btn-delete" data-tip="Delete this note for good. There's no undo, so I'm colored maroon as a warning." style="background:var(--maroon)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
-  <button class="iconbtn" id="closebtn" data-tip="Tuck this note away. It stays saved; bring it back from the hub or the tray icon." style="background:var(--maroon);margin-left:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  <button class="iconbtn" id="closebtn" data-tip="Tuck this note away. It's saved instantly, worry-free; bring it back anytime from the hub or the tray icon." style="background:var(--maroon);margin-left:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
 </header>
 <main>
   <div id="ta" contenteditable="true" data-placeholder="This one's blank. Type away." spellcheck="false"></div>
@@ -194,14 +195,13 @@ function toast(msg) {
   toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 3200);
 }
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 function fmtTs(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
   const h24 = d.getHours();
   const h12 = h24 % 12 || 12;
   const ampm = h24 < 12 ? 'AM' : 'PM';
-  return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + h12 + ':' + pad(d.getMinutes()) + ' ' + ampm;
+  return pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ', ' + h12 + ':' + pad(d.getMinutes()) + ' ' + ampm;
 }
 
 function touch() {
@@ -279,8 +279,9 @@ document.getElementById('pin').onclick = async () => {
   document.getElementById('pin').classList.toggle('on', applied);
   toast(applied ? "Pinned. I'll float above everything until you unpin me." : "Unpinned. I'll behave like a normal window now.");
 };
+document.getElementById('btn-new').onclick = () => api.newNote();
 document.getElementById('menubtn').onclick = () => api.openHub();
-document.getElementById('closebtn').onclick = () => api.closeNote(id);
+document.getElementById('closebtn').onclick = () => { touch(); api.closeNote(id); };
 document.getElementById('btn-delete').onclick = () => api.deleteNote(id);
 
 // persistent bottom bar: formatting toggles and inserts, matching where Microsoft's Sticky Notes puts them

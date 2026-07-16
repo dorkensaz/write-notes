@@ -39,13 +39,18 @@ function plainPreview(html) {
 }
 
 let saveTimer;
+function writeNow() {
+  const tmp = STORE() + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(notes, null, 1));
+  fs.renameSync(tmp, STORE());
+}
 function save() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    const tmp = STORE() + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(notes, null, 1));
-    fs.renameSync(tmp, STORE());
-  }, 300);
+  saveTimer = setTimeout(writeNow, 300);
+}
+function saveNow() {
+  clearTimeout(saveTimer);
+  writeNow();
 }
 
 function summary() {
@@ -184,7 +189,7 @@ ipcMain.handle('note:pin', (e, id, pin) => {
   return w.isAlwaysOnTop();
 });
 
-ipcMain.on('note:close', (e, id) => { const w = noteWins.get(id); if (w) w.close(); });
+ipcMain.on('note:close', (e, id) => { saveNow(); const w = noteWins.get(id); if (w) w.close(); });
 
 ipcMain.on('note:delete', (e, id) => {
   const w = noteWins.get(id);
