@@ -253,7 +253,7 @@ if (!gotLock) {
       }];
       save();
     }
-    notes.forEach(n => createNoteWindow(n));
+    openMostRecent(); // don't flood the screen with every saved note on launch
     createHub(false); // preload hidden so tray click is instant
   });
   app.on('window-all-closed', () => { /* stay alive in tray */ });
