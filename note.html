@@ -100,7 +100,7 @@ footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: va
   <button class="iconbtn" id="btn-new" data-tip="Start a brand-new note right away, no need to open the hub."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
   <button class="iconbtn" id="btn-divider" data-tip="Drop a divider line where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" x2="21" y1="12" y2="12"/><polyline points="8 8 12 4 16 8"/><polyline points="16 16 12 20 8 16"/></svg></button>
   <button class="iconbtn" id="btn-emdash" data-tip="Drop an em dash where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
-  <button class="iconbtn" id="btn-ice" data-tip="Stuck? I'll drop a random conversation starter into your note."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+  <button class="iconbtn" id="btn-arrow" data-tip="Drop a &rarr; arrow where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><polyline points="13 5 20 12 13 19"/></svg></button>
   <button class="iconbtn" id="menubtn" data-tip="Open the Write Notes hub, with the full list of your notes."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg></button>
   <button class="iconbtn" id="pin" data-tip="Keep this note floating above every other app. Click again to let it sit normally."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
   <button class="iconbtn" id="btn-delete" data-tip="Delete this note for good. There's no undo, so I'm colored maroon as a warning." style="background:var(--maroon)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
@@ -135,58 +135,12 @@ footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: va
 <script>
 const EM = String.fromCharCode(0x2014);
 const DIVIDER = '\n' + EM.repeat(3) + '\n';
-const ICEBREAKERS = [
-  "If you could have dinner with anyone alive today, who would it be?",
-  "What is the best piece of advice you have ever received?",
-  "What skill would you master instantly if you could?",
-  "What is your go-to comfort food?",
-  "If you won the lottery tomorrow, what is the first thing you would do?",
-  "What is a small thing that made you smile this week?",
-  "Coffee or tea, and how do you take it?",
-  "What was your first job, and what did it teach you?",
-  "If you could live in any city for a year, which one?",
-  "What is a movie you can rewatch endlessly?",
-  "What did you want to be when you were ten years old?",
-  "What is the most beautiful place you have ever visited?",
-  "If your life had a theme song, what would it be?",
-  "What is one thing on your bucket list?",
-  "What hobby would you pick up if time and money were no issue?",
-  "What is the weirdest food combination you secretly enjoy?",
-  "Are you a morning person or a night owl?",
-  "What is a book that changed how you think?",
-  "If you could instantly speak another language, which one?",
-  "What is your favorite way to spend a rainy day?",
-  "What is something you are looking forward to this month?",
-  "If animals could talk, which would be the rudest?",
-  "What is the best gift you have ever given someone?",
-  "What is a talent you have that surprises people?",
-  "Would you rather explore space or the deep ocean?",
-  "What was your favorite subject in school?",
-  "What is the last song you had stuck in your head?",
-  "If you opened a small shop, what would it sell?",
-  "What is a tradition from your family you love?",
-  "What is the best meal you have ever eaten?",
-  "If you could time travel, past or future?",
-  "What is one app you could not live without?",
-  "What is your idea of a perfect weekend?",
-  "What fictional world would you most want to visit?",
-  "What is something new you tried recently?",
-  "If you had a free extra hour every day, how would you use it?",
-  "What is the kindest thing a stranger has done for you?",
-  "Which season fits your personality best?",
-  "What is a smell that instantly brings back a memory?",
-  "If you could swap lives with someone for a day, who?",
-  "What is the most spontaneous thing you have ever done?",
-  "What would the title of your autobiography be?",
-  "If you could un-invent one thing, what would it be?",
-  "What is your favorite word in any language?"
-];
+const ARROW = String.fromCharCode(0x2192);
 
 const id = Number(new URLSearchParams(location.search).get('id'));
 const ta = document.getElementById('ta');
 const toastEl = document.getElementById('toast');
 const floatbar = document.getElementById('floatbar');
-let lastIce = -1;
 
 function toast(msg) {
   toastEl.textContent = msg;
@@ -345,14 +299,12 @@ document.getElementById('btn-emdash').onclick = () => {
   copyClip(EM);
   toast("Em dash dropped in, and it's on your clipboard if you need it elsewhere.");
 };
-document.getElementById('btn-ice').onclick = () => {
+document.getElementById('btn-arrow').onclick = () => {
   ta.focus();
-  let i;
-  do { i = Math.floor(Math.random() * ICEBREAKERS.length); } while (i === lastIce);
-  lastIce = i;
-  if (ta.textContent.trim() !== '') document.execCommand('insertHTML', false, '<br>');
-  document.execCommand('insertText', false, ICEBREAKERS[i]);
+  document.execCommand('insertText', false, ARROW);
   touch();
+  copyClip(ARROW);
+  toast("Arrow dropped in, and it's on your clipboard if you need it elsewhere.");
 };
 
 // floating toolbar: only appears once text is highlighted, matching how Word/Notion do it
