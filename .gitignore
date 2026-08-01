@@ -3,3 +3,4 @@ dist/
 electron-log.txt
 notes.json
 WriteNotes.lnk
+__pycache__/
