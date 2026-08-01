@@ -66,9 +66,6 @@ footer {
 }
 footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: var(--muted); }
 #pin.on { background: var(--red); }
-#btn-mic.on { background: var(--red); }
-/* words the recognizer is still second-guessing, greyed until it settles on them */
-.interim { color: var(--muted); }
 /* floating contextual toolbar: appears above a highlighted selection */
 #floatbar {
   position: fixed;
@@ -105,7 +102,6 @@ footer .ts { font-family: 'IBM Plex Mono', monospace; font-size: 16px; color: va
   <button class="iconbtn" id="btn-emdash" data-tip="Drop an em dash where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" x2="19" y1="12" y2="12"/></svg></button>
   <button class="iconbtn" id="btn-arrow" data-tip="Drop a &rarr; arrow where your cursor is. I copy it to your clipboard too."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><polyline points="13 5 20 12 13 19"/></svg></button>
   <button class="iconbtn" id="btn-peso" data-tip="Drop a &#8369; peso sign where your cursor is. I copy it to your clipboard too.">&#8369;</button>
-  <button class="iconbtn" id="btn-mic" data-tip="Talk instead of type. I'll write down what you say, right here on the note. Click me again to stop."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></button>
   <button class="iconbtn" id="menubtn" data-tip="Open the Write Notes hub, with the full list of your notes."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg></button>
   <button class="iconbtn" id="pin" data-tip="Keep this note floating above every other app. Click again to let it sit normally."><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button>
   <button class="iconbtn" id="btn-delete" data-tip="Delete this note for good. There's no undo, so I'm colored maroon as a warning." style="background:var(--maroon)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button>
@@ -164,16 +160,8 @@ function fmtTs(ts) {
   return pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ', ' + h12 + ':' + pad(d.getMinutes()) + ' ' + ampm;
 }
 
-// half-heard dictation lives in the note as a .interim span, but must never reach notes.json
-function savedHtml() {
-  if (!ta.querySelector('.interim')) return ta.innerHTML;
-  const copy = ta.cloneNode(true);
-  copy.querySelectorAll('.interim').forEach(n => n.remove());
-  return copy.innerHTML;
-}
-
 function touch() {
-  api.setContent(id, savedHtml());
+  api.setContent(id, ta.innerHTML);
   document.getElementById('tslabel').textContent = fmtTs(Date.now());
 }
 
@@ -284,99 +272,6 @@ document.getElementById('btn-new').onclick = () => api.newNote();
 document.getElementById('menubtn').onclick = () => api.openHub();
 document.getElementById('closebtn').onclick = () => { touch(); api.closeNote(id); };
 document.getElementById('btn-delete').onclick = () => api.deleteNote(id);
-
-// ---------- dictation ----------
-// Windows' own recognizer runs in a helper process; we just paint what it hears. Partial
-// guesses land greyed at the caret and rewrite themselves until the recognizer commits,
-// so the note fills in while you're still talking.
-const micBtn = document.getElementById('btn-mic');
-let listening = false;
-let interimEl = null;
-let acceptFinalsUntil = 0;
-
-function caretRange() {
-  const sel = window.getSelection();
-  if (sel && sel.rangeCount) {
-    const r = sel.getRangeAt(0);
-    if (ta.contains(r.commonAncestorContainer) || r.commonAncestorContainer === ta) return r;
-  }
-  const end = document.createRange(); // never spoken into before: start at the end of the note
-  end.selectNodeContents(ta);
-  end.collapse(false);
-  return end;
-}
-
-function ensureInterim() {
-  if (interimEl && interimEl.isConnected) return interimEl;
-  interimEl = document.createElement('span');
-  interimEl.className = 'interim';
-  const r = caretRange();
-  r.collapse(false);
-  r.insertNode(interimEl);
-  return interimEl;
-}
-
-function commitInterim(text) {
-  const span = ensureInterim();
-  // the note stores one flat run of inline text, so commit as a plain text node, not the span
-  const node = document.createTextNode(text + ' ');
-  span.replaceWith(node);
-  interimEl = null;
-  const sel = window.getSelection();
-  const r = document.createRange();
-  r.setStartAfter(node);
-  r.collapse(true);
-  sel.removeAllRanges();
-  sel.addRange(r);
-  touch();
-  node.parentNode && ta.scrollTo({ top: ta.scrollHeight });
-}
-
-function setMic(on) {
-  listening = on;
-  micBtn.classList.toggle('on', on);
-  if (!on && interimEl) { interimEl.remove(); interimEl = null; }
-}
-
-micBtn.onclick = () => {
-  if (listening) {
-    api.stopDictation();
-    // Whisper is still working on whatever you said last; give it a beat to land
-    acceptFinalsUntil = Date.now() + 8000;
-    setMic(false);
-    toast("Mic off. Just finishing off your last sentence.");
-    return;
-  }
-  setMic(true);
-  toast("I'm listening. Start talking and I'll write it down as you go.");
-  api.startDictation();
-};
-
-api.onDictation(msg => {
-  if (msg.t === 'loading') {
-    // only fires the first time the helper starts; after that it stays warm and this is silent
-    toast("Getting my ears ready. The very first time, I have to fetch my speech model, so give me a few minutes.");
-  } else if (msg.t === 'ready') {
-    if (listening) toast("All set. I'm listening now, talk away.");
-  } else if (msg.t === 'partial') {
-    if (!listening) return;
-    ensureInterim().textContent = msg.text;
-    ta.scrollTo({ top: ta.scrollHeight });
-  } else if (msg.t === 'final') {
-    // the phrase you were mid-way through when you hit stop is still being transcribed,
-    // and it arrives after listening is already off. Take it anyway, or it's lost.
-    if (!listening && Date.now() > acceptFinalsUntil) return;
-    commitInterim(msg.text);
-  } else if (msg.t === 'stopped' || msg.t === 'done') {
-    if (listening) toast("I stopped listening. Click the mic to pick it back up.");
-    setMic(false);
-  } else if (msg.t === 'error') {
-    setMic(false);
-    toast(/microphone|audio/i.test(msg.msg || '')
-      ? "I couldn't get your microphone going. Check that Windows lets apps use the mic, then try me again."
-      : "My speech engine didn't start. Restarting Write Notes usually sorts it out.");
-  }
-});
 
 // persistent bottom bar: formatting toggles and inserts, matching where Microsoft's Sticky Notes puts them
 const fmtButtons = { bold: document.getElementById('btn-bold'), italic: document.getElementById('btn-italic'), underline: document.getElementById('btn-underline'), strikeThrough: document.getElementById('btn-strike') };

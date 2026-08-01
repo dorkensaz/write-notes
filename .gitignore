@@ -2,8 +2,4 @@ node_modules/
 dist/
 electron-log.txt
 notes.json
-
-# PyInstaller output for dictate.exe (build/ itself stays tracked, it holds the icons)
-dictate-dist/
-build/dictate/
-__pycache__/
+WriteNotes.lnk

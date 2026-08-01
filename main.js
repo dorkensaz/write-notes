@@ -1,7 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, screen, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 
 const STORE = () => path.join(app.getPath('userData'), 'notes.json');
 const LT_LOCAL = 'http://127.0.0.1:8081/v2/check';
@@ -101,11 +100,7 @@ function createNoteWindow(n) {
   };
   win.on('move', remember);
   win.on('resize', remember);
-  win.on('closed', () => {
-    noteWins.delete(n.id);
-    if (dictateOwner && dictateOwner.isDestroyed()) stopDictation(false); // don't leave the mic held
-    tellHub();
-  });
+  win.on('closed', () => { noteWins.delete(n.id); tellHub(); });
   noteWins.set(n.id, win);
   tellHub();
   return win;
@@ -211,110 +206,6 @@ ipcMain.on('hub:open', () => createHub(true));
 ipcMain.on('win:close', e => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.close(); });
 ipcMain.on('external', (e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
 ipcMain.on('app:quit', () => { app.isQuittingForReal = true; app.quit(); });
-
-// ---------- dictation ----------
-// The renderer never touches the mic. A helper process runs Whisper locally and streams
-// one JSON line per event back here, which we relay to the note.
-//
-// Why not the browser's own API: Electron cannot use the Web Speech API at all.
-// webkitSpeechRecognition dies with a `network` error (Electron ships no Google speech
-// key) and Chromium's on-device path isn't bound in Electron, it kills the renderer.
-// Windows' built-in SAPI recognizer was tried next and was not usable for dictation:
-// "Hi. My name is Ken..." came back as "Scandals that I'm saying the exact since then".
-//
-// The helper is kept warm once started. Loading the Whisper models costs seconds, so
-// respawning it per click would put that delay in front of every sentence; instead the
-// mic is toggled by writing `start` / `stop` to its stdin.
-let dictateProc = null;
-let dictateOwner = null;
-
-function dictateCommand() {
-  const candidates = [
-    // shipped: electron-builder drops the frozen helper beside the app's resources
-    { cmd: path.join(process.resourcesPath || '', 'dictate', 'dictate.exe'), args: [] },
-    // running from source, once the helper has been built locally
-    { cmd: path.join(__dirname, 'dictate-dist', 'dictate', 'dictate.exe'), args: [] }
-  ];
-  for (const c of candidates) {
-    if (c.cmd && fs.existsSync(c.cmd)) return c;
-  }
-  // running from source without a built helper: any Python that has faster-whisper
-  const script = path.join(__dirname, 'dictate.py');
-  const py = process.env.WN_PYTHON || path.join(__dirname, '..', 'AutoRecord', '.venv', 'Scripts', 'python.exe');
-  return { cmd: py, args: [script] };
-}
-
-function killHelper() {
-  if (!dictateProc) return;
-  const p = dictateProc;
-  dictateProc = null;
-  try { p.stdin.write('quit\n'); } catch { /* already gone */ }
-  try { p.kill(); } catch { /* already gone */ }
-}
-
-function stopDictation(notify = true) {
-  const owner = dictateOwner;
-  dictateOwner = null;
-  if (dictateProc) {
-    try { dictateProc.stdin.write('stop\n'); } catch { killHelper(); }
-  }
-  if (notify && owner && !owner.isDestroyed()) owner.send('dictate:event', { t: 'stopped' });
-}
-
-function ensureHelper() {
-  if (dictateProc) return dictateProc;
-  const { cmd, args } = dictateCommand();
-  let proc;
-  try {
-    proc = spawn(cmd, args, { windowsHide: true });
-  } catch {
-    return null;
-  }
-  dictateProc = proc;
-
-  let buf = '';
-  proc.stdout.on('data', d => {
-    buf += d.toString();
-    const lines = buf.split('\n');
-    buf = lines.pop();
-    for (const line of lines) {
-      const s = line.trim();
-      if (!s) continue;
-      try {
-        const msg = JSON.parse(s);
-        if (proc === dictateProc && dictateOwner && !dictateOwner.isDestroyed()) dictateOwner.send('dictate:event', msg);
-      } catch { /* not our protocol, ignore */ }
-    }
-  });
-  proc.on('error', () => {
-    if (proc !== dictateProc) return;
-    dictateProc = null;
-    if (dictateOwner && !dictateOwner.isDestroyed()) dictateOwner.send('dictate:event', { t: 'error', msg: 'helper failed to start' });
-    dictateOwner = null;
-  });
-  proc.on('exit', () => {
-    if (proc !== dictateProc) return;
-    dictateProc = null;
-    stopDictation();
-  });
-  return proc;
-}
-
-ipcMain.on('dictate:start', e => {
-  const wc = e.sender;
-  // one mic, so a second note taking over turns the first one's button off
-  if (dictateOwner && dictateOwner !== wc && !dictateOwner.isDestroyed()) {
-    dictateOwner.send('dictate:event', { t: 'stopped' });
-  }
-  dictateOwner = wc;
-  const proc = ensureHelper();
-  if (!proc) { wc.send('dictate:event', { t: 'error', msg: 'spawn failed' }); dictateOwner = null; return; }
-  try { proc.stdin.write('start\n'); } catch { wc.send('dictate:event', { t: 'error', msg: 'helper not accepting commands' }); }
-});
-
-ipcMain.on('dictate:stop', () => stopDictation(false));
-
-app.on('before-quit', () => { dictateOwner = null; killHelper(); });
 
 ipcMain.handle('define', (e, word) => {
   if (!dictionary) {
