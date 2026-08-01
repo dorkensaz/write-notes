@@ -17,6 +17,14 @@ console.log(p.version);
 ")
 echo "==> Building v$VERSION"
 
+# The dictation helper is frozen separately and bundled in via extraResources.
+# Rebuild it only when it's missing or older than its source, since PyInstaller
+# takes minutes and most releases don't touch dictation.
+if [ ! -x dictate-dist/dictate/dictate.exe ] || [ dictate.py -nt dictate-dist/dictate/dictate.exe ] || [ dictate.spec -nt dictate-dist/dictate/dictate.exe ]; then
+  echo "==> Rebuilding the dictation helper"
+  ./build-dictate.sh
+fi
+
 npm run dist
 
 EXE="dist/Write Notes Setup $VERSION.exe"

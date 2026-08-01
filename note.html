@@ -292,6 +292,7 @@ document.getElementById('btn-delete').onclick = () => api.deleteNote(id);
 const micBtn = document.getElementById('btn-mic');
 let listening = false;
 let interimEl = null;
+let acceptFinalsUntil = 0;
 
 function caretRange() {
   const sel = window.getSelection();
@@ -340,8 +341,10 @@ function setMic(on) {
 micBtn.onclick = () => {
   if (listening) {
     api.stopDictation();
+    // Whisper is still working on whatever you said last; give it a beat to land
+    acceptFinalsUntil = Date.now() + 8000;
     setMic(false);
-    toast("Mic off. Everything I caught is saved on the note.");
+    toast("Mic off. Just finishing off your last sentence.");
     return;
   }
   setMic(true);
@@ -350,19 +353,28 @@ micBtn.onclick = () => {
 };
 
 api.onDictation(msg => {
-  if (msg.t === 'partial') {
+  if (msg.t === 'loading') {
+    // only fires the first time the helper starts; after that it stays warm and this is silent
+    toast("Getting my ears ready. The very first time, I have to fetch my speech model, so give me a few minutes.");
+  } else if (msg.t === 'ready') {
+    if (listening) toast("All set. I'm listening now, talk away.");
+  } else if (msg.t === 'partial') {
     if (!listening) return;
     ensureInterim().textContent = msg.text;
     ta.scrollTo({ top: ta.scrollHeight });
   } else if (msg.t === 'final') {
-    if (!listening) return;
+    // the phrase you were mid-way through when you hit stop is still being transcribed,
+    // and it arrives after listening is already off. Take it anyway, or it's lost.
+    if (!listening && Date.now() > acceptFinalsUntil) return;
     commitInterim(msg.text);
   } else if (msg.t === 'stopped' || msg.t === 'done') {
     if (listening) toast("I stopped listening. Click the mic to pick it back up.");
     setMic(false);
   } else if (msg.t === 'error') {
     setMic(false);
-    toast("I couldn't get your microphone going. Check that Windows lets apps use the mic, then try me again.");
+    toast(/microphone|audio/i.test(msg.msg || '')
+      ? "I couldn't get your microphone going. Check that Windows lets apps use the mic, then try me again."
+      : "My speech engine didn't start. Restarting Write Notes usually sorts it out.");
   }
 });
 

@@ -213,45 +213,64 @@ ipcMain.on('external', (e, url) => { if (/^https?:\/\//.test(url)) shell.openExt
 ipcMain.on('app:quit', () => { app.isQuittingForReal = true; app.quit(); });
 
 // ---------- dictation ----------
-// The renderer never touches the mic. A PowerShell helper drives Windows' own offline
-// recognizer and streams one JSON line per event back here, which we relay to the note.
-// (Electron cannot use the Web Speech API at all: webkitSpeechRecognition dies with a
-// `network` error since Electron ships no Google speech key, and Chromium's on-device
-// path isn't bound in Electron, it kills the renderer outright.)
+// The renderer never touches the mic. A helper process runs Whisper locally and streams
+// one JSON line per event back here, which we relay to the note.
+//
+// Why not the browser's own API: Electron cannot use the Web Speech API at all.
+// webkitSpeechRecognition dies with a `network` error (Electron ships no Google speech
+// key) and Chromium's on-device path isn't bound in Electron, it kills the renderer.
+// Windows' built-in SAPI recognizer was tried next and was not usable for dictation:
+// "Hi. My name is Ken..." came back as "Scandals that I'm saying the exact since then".
+//
+// The helper is kept warm once started. Loading the Whisper models costs seconds, so
+// respawning it per click would put that delay in front of every sentence; instead the
+// mic is toggled by writing `start` / `stop` to its stdin.
 let dictateProc = null;
 let dictateOwner = null;
 
-function powershellExe() {
-  const sys = process.env.SystemRoot || 'C:\\Windows';
-  const full = path.join(sys, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  return fs.existsSync(full) ? full : 'powershell.exe';
+function dictateCommand() {
+  const candidates = [
+    // shipped: electron-builder drops the frozen helper beside the app's resources
+    { cmd: path.join(process.resourcesPath || '', 'dictate', 'dictate.exe'), args: [] },
+    // running from source, once the helper has been built locally
+    { cmd: path.join(__dirname, 'dictate-dist', 'dictate', 'dictate.exe'), args: [] }
+  ];
+  for (const c of candidates) {
+    if (c.cmd && fs.existsSync(c.cmd)) return c;
+  }
+  // running from source without a built helper: any Python that has faster-whisper
+  const script = path.join(__dirname, 'dictate.py');
+  const py = process.env.WN_PYTHON || path.join(__dirname, '..', 'AutoRecord', '.venv', 'Scripts', 'python.exe');
+  return { cmd: py, args: [script] };
+}
+
+function killHelper() {
+  if (!dictateProc) return;
+  const p = dictateProc;
+  dictateProc = null;
+  try { p.stdin.write('quit\n'); } catch { /* already gone */ }
+  try { p.kill(); } catch { /* already gone */ }
 }
 
 function stopDictation(notify = true) {
   const owner = dictateOwner;
   dictateOwner = null;
   if (dictateProc) {
-    const p = dictateProc;
-    dictateProc = null;
-    try { p.kill(); } catch { /* already gone */ }
+    try { dictateProc.stdin.write('stop\n'); } catch { killHelper(); }
   }
   if (notify && owner && !owner.isDestroyed()) owner.send('dictate:event', { t: 'stopped' });
 }
 
-ipcMain.on('dictate:start', e => {
-  stopDictation(); // one mic, so a second note taking over turns the first one's button off
-  const wc = e.sender;
-  // electron-builder keeps dictate.ps1 outside the asar; PowerShell can't read from inside one
-  const script = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'dictate.ps1');
+function ensureHelper() {
+  if (dictateProc) return dictateProc;
+  const { cmd, args } = dictateCommand();
   let proc;
   try {
-    proc = spawn(powershellExe(), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], { windowsHide: true });
+    proc = spawn(cmd, args, { windowsHide: true });
   } catch {
-    wc.send('dictate:event', { t: 'error', msg: 'spawn failed' });
-    return;
+    return null;
   }
   dictateProc = proc;
-  dictateOwner = wc;
 
   let buf = '';
   proc.stdout.on('data', d => {
@@ -263,21 +282,39 @@ ipcMain.on('dictate:start', e => {
       if (!s) continue;
       try {
         const msg = JSON.parse(s);
-        if (proc === dictateProc && !wc.isDestroyed()) wc.send('dictate:event', msg);
+        if (proc === dictateProc && dictateOwner && !dictateOwner.isDestroyed()) dictateOwner.send('dictate:event', msg);
       } catch { /* not our protocol, ignore */ }
     }
   });
-  proc.on('error', () => { if (proc === dictateProc && !wc.isDestroyed()) wc.send('dictate:event', { t: 'error', msg: 'helper failed to start' }); });
+  proc.on('error', () => {
+    if (proc !== dictateProc) return;
+    dictateProc = null;
+    if (dictateOwner && !dictateOwner.isDestroyed()) dictateOwner.send('dictate:event', { t: 'error', msg: 'helper failed to start' });
+    dictateOwner = null;
+  });
   proc.on('exit', () => {
-    if (proc !== dictateProc) return; // superseded by a newer session
+    if (proc !== dictateProc) return;
     dictateProc = null;
     stopDictation();
   });
+  return proc;
+}
+
+ipcMain.on('dictate:start', e => {
+  const wc = e.sender;
+  // one mic, so a second note taking over turns the first one's button off
+  if (dictateOwner && dictateOwner !== wc && !dictateOwner.isDestroyed()) {
+    dictateOwner.send('dictate:event', { t: 'stopped' });
+  }
+  dictateOwner = wc;
+  const proc = ensureHelper();
+  if (!proc) { wc.send('dictate:event', { t: 'error', msg: 'spawn failed' }); dictateOwner = null; return; }
+  try { proc.stdin.write('start\n'); } catch { wc.send('dictate:event', { t: 'error', msg: 'helper not accepting commands' }); }
 });
 
 ipcMain.on('dictate:stop', () => stopDictation(false));
 
-app.on('before-quit', () => stopDictation(false));
+app.on('before-quit', () => { dictateOwner = null; killHelper(); });
 
 ipcMain.handle('define', (e, word) => {
   if (!dictionary) {

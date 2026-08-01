@@ -18,21 +18,27 @@ Run the installer in `dist/` (Write Notes Setup 1.0.0.exe). One click, no option
 
 Click the microphone button in a note's top bar to start dictating, click it again to stop. The button turns red while it is listening and the words appear on the note in real time. Words the recognizer is still guessing at show in a muted grey; once it settles on the phrase, that text commits and reads like anything else you typed.
 
-It runs on .NET `System.Speech` (the Microsoft Speech Recognizer 8.0 desktop recognizer), which already ships with Windows. The app drives it through a bundled PowerShell helper, `dictate.ps1`, that streams one JSON object per line back to the note. So dictation is fully offline: no API key, no cloud service, no audio ever leaving the machine, no extra download, and nothing added to the installer beyond a small text script. Grammar checking is still the only feature that ever touches the internet.
+It runs on Whisper, locally, through the `faster-whisper` library. The app drives it with a bundled helper, `dictate.py`, that streams one JSON object per line back to the note.
 
-Be realistic about accuracy. This is the recognizer built into Windows, not Whisper. It is good for fast free-form word vomit that you tidy up afterwards, and it does not add punctuation for you. Treat it as capture, not as verbatim transcription.
+Two model tiers do the work, because no single model is both instant and accurate. `tiny.en` repaints the greyed live text while you are still talking, and `small.en` re-transcribes the finished phrase and commits the accurate version. That is why text appears fast and still ends up right. Phrases are cut apart by a simple energy-based voice activity detector: a pause of roughly three quarters of a second ends a phrase and commits it.
 
-Self-check, run from the app folder:
+Dictation is offline. No API key, no cloud service, and no audio ever leaves your machine. The one honest nuance: the Whisper model files themselves download once from HuggingFace the first time they are needed and are then cached on disk, after which dictation works with no network at all. Grammar checking is still the only feature that ever sends anything you write out to the internet.
+
+You do not need Python installed. For end users the helper is packaged into a standalone executable that ships with the app.
+
+Accuracy is why this engine was chosen. Windows' own built-in SAPI recognizer was wired up first and tested with real speech, and it failed badly: the spoken sentence "Hi. My name is Ken, and I am saying the exact same thing that I am saying to Claude." came back as "Scandals that I'm saying the exact since then that I and lazy gotten sought". Local Whisper, on that same audio, returned the sentence correctly, name included, with punctuation and capitalization. That is the whole reason for the switch, written down so nobody puts the old engine back.
+
+Self-check for developers, run from the app folder:
 
 ```
-powershell -NoProfile -ExecutionPolicy Bypass -File test-dictate.ps1
+python test-dictate.py
 ```
 
-It synthesizes a spoken sentence to a WAV, feeds that back through the recognizer, and asserts real words come out.
+It speaks a known sentence into a WAV, replays that audio through the real voice-detection and transcription pipeline, and asserts the committed text matches. It needs no microphone.
 
 ## Grammar checking
 
-Notes try a local LanguageTool server at `http://127.0.0.1:8081` first and fall back to the free public LanguageTool API (the only feature that ever touches the internet). Fully offline setup, optional:
+Notes try a local LanguageTool server at `http://127.0.0.1:8081` first and fall back to the free public LanguageTool API (the only feature that ever sends your text off the machine). Fully offline setup, optional:
 
 ```
 winget install -e --id EclipseAdoptium.Temurin.21.JRE
@@ -48,6 +54,7 @@ java -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8081 
 
 - `npm install` then `npm start` to run from source.
 - `npm run dist` builds the Windows installer into `dist/`.
+- Dictation from source needs a Python environment with `faster-whisper`, `numpy`, and `pyaudiowpatch`. End users never see this: the packaged app ships the helper as a standalone executable instead.
 
 ## Why Electron and other decisions
 
@@ -61,5 +68,5 @@ java -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8081 
 8. **Bold/italic/underline/strikethrough** use the browser's built-in `execCommand`, deprecated but still functional in Chromium; the note stays a single block of inline text and `<br>` line breaks (Enter is intercepted to insert a line break, not a new paragraph) so the uppercase/lowercase/grammar tools only ever have to deal with one flat run of text, not nested paragraphs.
 9. **Selection-dependent tools float, format toggles stay put**: uppercase, lowercase, dictionary, and grammar-fix only make sense with text already highlighted, so they live in a floating toolbar that appears above the selection (like Word or Notion) instead of sitting always-visible and inert. Bold/italic/underline/strikethrough stay in the persistent bottom bar since, like in Microsoft's Sticky Notes, they can also toggle formatting for whatever you type next, not just an existing selection.
 10. **Icon tool crash workaround**: electron-builder's bundled PNG-to-ICO converter kept crashing on this machine under memory pressure. The Windows icon now ships as a hand-built `build/icon.ico` (a raw PNG wrapped in a standard ICO container) so the build never calls that external converter.
-11. **The browser's Web Speech API does not work in Electron**: this was tested, not assumed, so nobody should burn a day re-testing it. `webkitSpeechRecognition` fails with a `network` error because Electron ships no Google speech key, and Chromium's newer on-device speech path is not bound in Electron at all (reaching for it kills the renderer process with "No binder found for interface media.mojom.OnDeviceSpeechRecognition"). Windows' own Win+H voice typing was ruled out too: it makes the user accept an online-speech privacy consent flow that is not accepted on a fresh machine, so it fails the "works immediately" bar, and it sends audio to Microsoft.
-12. **Dictation runs on .NET `System.Speech` via a bundled PowerShell script**: the Microsoft Speech Recognizer 8.0 desktop recognizer is already part of Windows, so `dictate.ps1` drives it and streams one JSON object per line (partial guesses and committed phrases) back to the note. That keeps dictation fully offline with no API key, no cloud call, and no model download, and it adds only a small text script to the installer. The trade is accuracy: this recognizer is built for capture you clean up, not for verbatim transcription. The one-JSON-object-per-line protocol is deliberately dumb so a better engine can be swapped in behind it later without the app changing.
+11. **Three speech engines were tried and rejected before Whisper**: all tested, not assumed, so nobody burns a day re-testing them. (a) The browser's Web Speech API does not work in Electron at all. `webkitSpeechRecognition` fails with a `network` error because Electron ships no Google speech key, and Chromium's newer on-device speech path is not bound in Electron either (reaching for it kills the renderer process with "No binder found for interface media.mojom.OnDeviceSpeechRecognition"). (b) Windows' own Win+H voice typing makes the user accept an online-speech privacy consent flow that is not accepted on a fresh machine, so it fails the "works immediately" bar, and it sends audio to Microsoft. (c) Windows' built-in SAPI recognizer ran, but its accuracy was unusable on real speech: "Hi. My name is Ken, and I am saying the exact same thing that I am saying to Claude." transcribed as "Scandals that I'm saying the exact since then that I and lazy gotten sought". Local Whisper was the remaining option that is both accurate and private.
+12. **Dictation runs on local Whisper via a bundled Python helper**: `dictate.py` uses `faster-whisper` and streams one JSON object per line (partial guesses and committed phrases) back to the note, and it is shipped to end users as a standalone executable so nobody has to install Python. Two model tiers are used on purpose, since no single model is both instant and accurate: `tiny.en` keeps the greyed live text moving while you talk, `small.en` re-transcribes each finished phrase and commits the accurate version. Phrase boundaries come from an energy-based voice activity detector, with a pause of roughly three quarters of a second ending a phrase. Audio still never leaves the machine; only the model files are fetched once, on first use, and cached. The one-JSON-object-per-line protocol is deliberately dumb so the engine behind it can be swapped without the app changing, which is exactly what happened when the Windows recognizer was replaced.
