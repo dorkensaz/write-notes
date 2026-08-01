@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, shell, screen, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const STORE = () => path.join(app.getPath('userData'), 'notes.json');
 const LT_LOCAL = 'http://127.0.0.1:8081/v2/check';
@@ -100,7 +101,11 @@ function createNoteWindow(n) {
   };
   win.on('move', remember);
   win.on('resize', remember);
-  win.on('closed', () => { noteWins.delete(n.id); tellHub(); });
+  win.on('closed', () => {
+    noteWins.delete(n.id);
+    if (dictateOwner && dictateOwner.isDestroyed()) stopDictation(false); // don't leave the mic held
+    tellHub();
+  });
   noteWins.set(n.id, win);
   tellHub();
   return win;
@@ -206,6 +211,73 @@ ipcMain.on('hub:open', () => createHub(true));
 ipcMain.on('win:close', e => { const w = BrowserWindow.fromWebContents(e.sender); if (w) w.close(); });
 ipcMain.on('external', (e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
 ipcMain.on('app:quit', () => { app.isQuittingForReal = true; app.quit(); });
+
+// ---------- dictation ----------
+// The renderer never touches the mic. A PowerShell helper drives Windows' own offline
+// recognizer and streams one JSON line per event back here, which we relay to the note.
+// (Electron cannot use the Web Speech API at all: webkitSpeechRecognition dies with a
+// `network` error since Electron ships no Google speech key, and Chromium's on-device
+// path isn't bound in Electron, it kills the renderer outright.)
+let dictateProc = null;
+let dictateOwner = null;
+
+function powershellExe() {
+  const sys = process.env.SystemRoot || 'C:\\Windows';
+  const full = path.join(sys, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+  return fs.existsSync(full) ? full : 'powershell.exe';
+}
+
+function stopDictation(notify = true) {
+  const owner = dictateOwner;
+  dictateOwner = null;
+  if (dictateProc) {
+    const p = dictateProc;
+    dictateProc = null;
+    try { p.kill(); } catch { /* already gone */ }
+  }
+  if (notify && owner && !owner.isDestroyed()) owner.send('dictate:event', { t: 'stopped' });
+}
+
+ipcMain.on('dictate:start', e => {
+  stopDictation(); // one mic, so a second note taking over turns the first one's button off
+  const wc = e.sender;
+  // electron-builder keeps dictate.ps1 outside the asar; PowerShell can't read from inside one
+  const script = path.join(__dirname.replace('app.asar', 'app.asar.unpacked'), 'dictate.ps1');
+  let proc;
+  try {
+    proc = spawn(powershellExe(), ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script], { windowsHide: true });
+  } catch {
+    wc.send('dictate:event', { t: 'error', msg: 'spawn failed' });
+    return;
+  }
+  dictateProc = proc;
+  dictateOwner = wc;
+
+  let buf = '';
+  proc.stdout.on('data', d => {
+    buf += d.toString();
+    const lines = buf.split('\n');
+    buf = lines.pop();
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s) continue;
+      try {
+        const msg = JSON.parse(s);
+        if (proc === dictateProc && !wc.isDestroyed()) wc.send('dictate:event', msg);
+      } catch { /* not our protocol, ignore */ }
+    }
+  });
+  proc.on('error', () => { if (proc === dictateProc && !wc.isDestroyed()) wc.send('dictate:event', { t: 'error', msg: 'helper failed to start' }); });
+  proc.on('exit', () => {
+    if (proc !== dictateProc) return; // superseded by a newer session
+    dictateProc = null;
+    stopDictation();
+  });
+});
+
+ipcMain.on('dictate:stop', () => stopDictation(false));
+
+app.on('before-quit', () => stopDictation(false));
 
 ipcMain.handle('define', (e, word) => {
   if (!dictionary) {

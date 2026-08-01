@@ -26,7 +26,9 @@ taskkill //IM "Write Notes.exe" //F 2>/dev/null || true
 "$EXE" /S
 
 echo "==> Committing and pushing"
-git add -A -- . ':!dist' ':!node_modules'
+# .gitignore already covers dist/ and node_modules/; naming them as exclude pathspecs
+# made git treat them as explicitly-added ignored paths, exit 1, and kill the script here
+git add -A
 git commit -m "v$VERSION: $MSG"
 git push origin master
 

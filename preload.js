@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('api', {
   closeWindow: () => ipcRenderer.send('win:close'),
   openExternal: url => ipcRenderer.send('external', url),
   quit: () => ipcRenderer.send('app:quit'),
+  startDictation: () => ipcRenderer.send('dictate:start'),
+  stopDictation: () => ipcRenderer.send('dictate:stop'),
+  onDictation: cb => ipcRenderer.on('dictate:event', (e, msg) => cb(msg)),
   define: word => ipcRenderer.invoke('define', word),
   grammar: text => ipcRenderer.invoke('grammar', text)
 });
