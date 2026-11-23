@@ -33,6 +33,7 @@ function plainPreview(html) {
   return String(html || '')
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/\s+/g, ' ')
     .trim();
@@ -53,10 +54,20 @@ function saveNow() {
   writeNow();
 }
 
+const isEmpty = n => !plainPreview(n.html);
+
+// Empty notes are never listed in the hub and never kept: a note window that is closed
+// while still empty deletes itself, and any empty leftovers are purged at launch.
+function dropEmpty(exceptOpen = true) {
+  const before = notes.length;
+  notes = notes.filter(n => !isEmpty(n) || (exceptOpen && noteWins.has(n.id)));
+  return notes.length !== before;
+}
+
 function summary() {
-  return notes.map(n => ({
+  return notes.filter(n => !isEmpty(n)).map(n => ({
     id: n.id,
-    preview: (plainPreview(n.html) || 'A blank note').slice(0, 40),
+    preview: plainPreview(n.html).slice(0, 40),
     ts: n.ts,
     open: noteWins.has(n.id)
   }));
@@ -100,7 +111,7 @@ function createNoteWindow(n) {
   };
   win.on('move', remember);
   win.on('resize', remember);
-  win.on('closed', () => { noteWins.delete(n.id); tellHub(); });
+  win.on('closed', () => { noteWins.delete(n.id); if (dropEmpty()) save(); tellHub(); });
   noteWins.set(n.id, win);
   tellHub();
   return win;
@@ -244,6 +255,7 @@ if (!gotLock) {
   app.on('second-instance', () => openMostRecent());
   app.whenReady().then(() => {
     load();
+    if (dropEmpty()) save(); // purge empty notes left over from earlier versions
     createTray();
     if (notes.length === 0) {
       notes = [{
